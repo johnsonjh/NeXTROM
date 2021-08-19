@@ -1,0 +1,46 @@
+sys/locore.s		standard
+sys/main.c		standard
+sys/setreg.c		standard
+sys/mem.c		standard
+sys/help.c		standard
+pot/POTUtils.s		standard
+pot/expand.c		standard
+pot/pics.c		standard
+pot/MemoryTest.s	standard
+pot/POT.c		standard
+pot/fpu_utils.s		standard
+boot/boot.c		standard
+boot/loader.c		standard
+boot/tftp.c		optional netboot
+boot/srec.c		optional srecboot
+boot/sadecomp.c		optional compboot
+subr/cksum.c		standard
+subr/prf.c		standard
+subr/gets.c		standard
+subr/util.c		standard
+subr/libc.s		standard
+subr/getput.c		standard
+subr/ppkt.c		optional PPKT
+subr/inet_ntoa.c	optional PPKT
+dev/nvram.c		standard
+dev/timer.c		standard
+dev/zs.c		standard
+dev/en.c		standard
+dev/km.c		standard
+dev/sc.c		optional scsiboot
+dev/sd.c		optional scsiboot
+dev/dma.c		optional scsiboot
+dev/dma.c		optional odboot
+dev/dma.c		optional fdboot
+dev/diskproto.c		optional scsiboot
+dev/diskproto.c		optional odboot
+dev/diskproto.c		optional fdboot
+dev/od.c		optional odboot
+diag/enet.c		optional ENETDIAG
+diag/dbug_dma.c		optional DBUG_DMA
+dev/fd_driver.c		optional fdboot
+dev/fd_subr.c		optional fdboot
+dev/fd_io.c		optional fdboot
+dev/fd_cmds.c		optional fdboot
+
+

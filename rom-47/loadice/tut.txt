@@ -1,0 +1,24 @@
+LoadICE V 1.4alpha
+Copyright (C) 1990 Grammar Engine, Inc.
+Initializing defaults from file: loadice.ini
+Force fill with ffff 
+filename = TUT.BIN  skip = 0  offset = 200
+filename = TUT.INT  offset = - f000
+filename = TUT.MOT  offset = - f00
+Establishing connection with Promice
+Module #0 Model 512 Emulating 8192 bytes
+Module #1 Model 512 Emulating 8192 bytes
+Operating Mode 8 bits
+Building ROM image
+LoadICE: 
+Unit number 0 passed the memory test
+LoadICE: Promice Version 3.1a
+LoadICE: Loading @ baudrate = 19200
+|\-/|\-/|\-/|\-/|\-/|\-/|\-/|\-/|\-/|\-/|\-/|\-/|\-/|\-/|\-/|\-/Loaded
+Loading complete - 16384 data bytes transfered
+LoadICE: 00:00000 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 
+LoadICE: 00:00100 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 
+LoadICE: 00:00200 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 
+LoadICE: 00:00000 00  [00]00:00001 01  [01]00:00002 02  [02]00:00003 03  [03]00:00002 0d  [02]LoadICE: 00:00000 ff f0 0d 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 
+LoadICE: (0:00000 I=00 P=ff)(0:00001 I=01 P=f0)(0:00002 I=02 P=0d)|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\|/-\Verified
+LoadICE: 

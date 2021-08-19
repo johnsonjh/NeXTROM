@@ -1,0 +1,79 @@
+
+BOOTING SCSI
+************
+340 348 /as/keith/newbooticons/nextbox440x176x2.binary
+
+640 390 /as/keith/newbooticons/grayscsi180x95x2.binary
+
+686 394 /as/keith/newbooticons/graydigit68x10x2.binary
+694 394 /as/keith/newbooticons/graydigit68x10x2.binary
+702 394 /as/keith/newbooticons/graydigit08x10x2.binary
+
+555 406 /as/keith/newbooticons/disk48x20x2.binary
+555 426 /as/keith/newbooticons/from48x20x2.binary
+555 446 /as/keith/newbooticons/loading72x20x2.binary
+595 406 /as/keith/newbooticons/dots16x8x2.binary
+
+
+animate frames
+640 415 /as/keith/newbooticons/grayscsi272x65x2.binary
+640 415 /as/keith/newbooticons/grayscsi372x65x2.binary
+
+BOOTING ETHERNET
+****************
+
+340 348 /as/keith/newbooticons/nextbox.ps)run GR
+
+552 405 /as/keith/newbooticons/network80x20x2.binary
+553 426 /as/keith/newbooticons/from48x20x2.binary
+553 446 /as/keith/newbooticons/loading72x20x2.binary
+626 407 /as/keith/newbooticons/dots16x8x2.binary
+
+640 395 /as/keith/newbooticons/grayethernet188x84x2.binary
+
+animate frames
+640 395 /as/keith/newbooticons/grayethernet188x84x2.binary
+640 416 /as/keith/newbooticons/grayethernet288x63x2.binary
+640 416 /as/keith/newbooticons/grayethernet388x63x2.binary
+
+BOOTING OPTICAL
+*************** 
+340 348  /as/keith/newbooticons/nextbox440x176x2.binary
+
+640 395 /as/keith/newbooticons/grayoptical180x84x2.binary
+
+555 406 /as/keith/newbooticons/disk48x20x2.binary
+555 426 /as/keith/newbooticons/from48x20x2.binary
+555 446 /as/keith/newbooticons/loading72x20x2.binary
+595 406 /as/keith/newbooticons/dots16x8x2.binary
+
+animate
+640 423 /as/keith/newbooticons/grayoptical272x41x2.binary
+640 423 /as/keith/newbooticons/grayoptical372x41x2.binary
+
+bad disk
+4 fps
+555 416 /as/keith/newbooticons/disk48x20x2.binary
+555 436 /as/keith/newbooticons/bad48x20x2.binary
+595 416 /as/keith/newbooticons/dots16x8x2.binary
+
+640 423 /as/keith/newbooticons/badgraydisk280x41x2.binary
+
+insert disk
+2 fps
+555 406 /as/keith/newbooticons/disk48x20x2.binary
+555 426 /as/keith/newbooticons/insert48x20x2.binary
+555 446 /as/keith/newbooticons/please64x20x2.binary
+595 406 /as/keith/newbooticons/dots16x8x2.binary
+
+672 431 /as/keith/newbooticons/diskarrow116x17x2.binary
+672 447 /as/keith/newbooticons/diskarrow316x17x2.binary
+
+flip disk
+
+555 406 /as/keith/newbooticons/disk48x20x2.binary
+555 426 /as/keith/newbooticons/flip32x20x2.binary
+555 446 /as/keith/newbooticons/please64x20x2.binary
+595 406 /as/keith/newbooticons/dots16x8x2.binary
+
+664 437 /as/keith/newbooticons/flipdisk32x20x2.binary

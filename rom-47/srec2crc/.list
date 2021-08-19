@@ -1,0 +1,9 @@
+./
+../
+.list
+.places
+Makefile
+srec2crc*
+srec2crc.c
+srec2crc.c.save
+srec2crc.o

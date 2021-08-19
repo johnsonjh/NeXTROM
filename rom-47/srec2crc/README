@@ -1,0 +1,7 @@
+Example of usage:
+
+#srec2crc mon.srec.sample 
+
+  Byte-wide hex sum (should match DATA I/O 288): 40F8
+  Ethernet hex CRC: 85F9E12B
+  Monitor hex CRC: 75CB568C

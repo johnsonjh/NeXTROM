@@ -1,0 +1,1293 @@
+/* @(#)POT.c	1.0	04/01/88	(c) 1988 NeXT Inc.	 */
+/*
+ * *************************************************************************
+ *
+ *
+ *
+ *
+ *
+ *
+ * POT.c -- Power on self test routines, except for memory tests. ROM VERSION 
+ *
+ * HISTORY 11-August-88 Joe Becker (jbecker) at NeXT Changes to support DMA
+ * chip 313 and sound out underrun. 
+ *
+ * 1-April-88 Joe Becker (jbecker) at NeXT Created. 
+ *
+**************************************************************** 
+ *
+ *
+ *
+ *
+ */
+
+#include <pot/POT.h>
+#include <pot/expand.h>
+
+long            NVRAMTest();
+long            VideoRAMTest();
+long            SCCTest();
+long            EtherNetTest();
+long            SCSITest();
+long            ExtendedSCSITest();
+long            MODriveTest();
+long            RTCTest();
+long            SystemTimerTest();
+long            EventCounterTest();
+long            SoundOutTest();
+
+void            serialPrint();
+
+long
+poweron_test()
+{
+
+	struct mon_global *mg = restore_mg();
+	struct nvram_info *ni = &mg->mg_nvram;
+	char            on, extended, loop, verbose, abort;
+	char            scc, scsi, enet, ecc, rtc, timer, event, sound;
+	long            result, ctr, delay;
+	
+	on = ni->ni_pot[0] & POT_ON;
+	verbose = ni->ni_pot[0] & VERBOSE_POT;
+	loop = ni->ni_pot[0] & LOOP_POT;
+	extended = ni->ni_pot[0] & EXTENDED_POT;
+
+
+	if (!on)
+		return (0);
+#ifdef TEST
+	scc = ni->ni_pot[1] & SCC_TEST;
+	scsi = ni->ni_pot[1] & SCSI_TEST;
+	enet = ni->ni_pot[1] & ENET_TEST;
+	ecc = ni->ni_pot[1] & ECC_TEST;
+	rtc = ni->ni_pot[1] & RTC_TEST;
+	timer = ni->ni_pot[1] & TIMER_TEST;
+	event = ni->ni_pot[1] & EVENT_TEST;
+	sound = ni->ni_pot[1] & SOUND_TEST;
+#else
+	scc = scsi = enet = rtc = timer = event = sound = 1;
+#endif
+
+	/* allow messages to be seen if looping */
+	if (loop) {
+		mg->km.flags &= ~KMF_INIT;
+		mg->km.flags |= KMF_SEE_MSGS;
+
+	}
+	if (scc) {
+		if (verbose)
+			printf("Testing the SCC");
+		if (result = SCCTest())
+			return (SCC_CONTROLLER_TEST_FAILED << 16 | result);
+	}
+	/*
+	 * serialPrint('a',"\r\nPort A:\r\n"); serialPrint('b',"\r\nPort
+	 * B:\r\n"); 
+	 */
+
+	if (scsi) {
+		if (verbose)
+			printf(", SCSI");
+/******
+		printf("CRC: %d", calculateCRC(30,65506));
+*****/
+		if (result = SCSITest())
+			return (SCSI_CONTROLLER_TEST_FAILED << 16 | result);
+	}
+	if (enet) {
+		if (verbose)
+			printf(", Enet");
+		if (result = EtherNetTest())
+			return (ETHERNET_CONTROLLER_TEST_FAILED << 16 | result);
+	}
+	if (ecc) {
+		if (verbose)
+			printf(", ECC");
+		if (result = MODriveTest())
+			return (MO_CONTROLLER_TEST_FAILED << 16 | result);
+	}
+	if (rtc) {
+		if (verbose)
+			printf(", RTC");
+		if (result = RTCTest())
+			return (RTC_TEST_FAILED << 16 | result);
+	}
+	if (timer) {
+		if (verbose)
+			printf(", Timer");
+		if (result = SystemTimerTest())
+			return (SYSTEM_TIMER_TEST_FAILED << 16 | result);
+	}
+	if (event) {
+		if (mg->mg_diskchip != 309) {
+			if (verbose)
+				printf(", Event Counter");
+			if (result = EventCounterTest())
+				return (EVENT_COUNTER_TEST_FAILED << 16 | result);
+		}
+	}
+	if (sound) {
+		if (verbose)
+			printf(", Sound Out");
+		if (result = SoundOutTest())
+			return (SOUND_OUT_TEST_FAILED << 16 | result);
+	}
+	if (extended) {
+		printf("\n\nStarting Extended Self Test...\n");
+		printf("Extended SCSI Test");
+		if (result = ExtendedSCSITest())
+			return (SCSI_CONTROLLER_TEST_FAILED << 16 | result);
+
+	}
+	if (loop) {
+		printf("\n\nStrike any key to exit self test");
+		for (ctr = 0; ctr < 10; ctr++)
+			if (abort = (u_char) mon_try_getc())
+				return (0);
+			else {
+				for (delay = 0; delay < 200000; delay++);
+				printf("%s", ".");
+			}
+		asm("reset");
+	}
+	return (POT_PASSED);
+}
+
+
+
+long
+NVRAMTest()
+{
+	register struct nvram_info *ni;
+	char            control, nv_data[sizeof(*ni)];
+	long            index;
+
+	ni = (struct nvram_info *) nv_data;
+
+	if (!nvram_check(ni)) {	/* nvram ok, are POT & DRAM bits on? */
+		control = rtc_read(RTC_RAM | ((int)ni->ni_pot - (int)ni));
+		if (control & POT_ON)
+			return (control & TEST_DRAM_POT);
+		else
+			return (0);
+	}
+	/* nvram was bad, can it be set? try a simple pattern */
+
+	for (index = 0; index < sizeof(*ni); nv_data[index] = index++);
+
+	/* FIXME? */
+	/* if nvram can't be set, blink forever */
+
+	if (nvram_set(ni))
+		blinkLed(0x40l);/* real slow to id nvram */
+
+	/*
+	 * nvram works; destroy checksum, main will set proper defaults
+	 * for everything except DRAM which gets tested before main is
+	 * called 
+	 */
+
+	rtc_write(RTC_RAM | ((int)&ni->ni_cksum - (int)ni), 0);
+
+	/* FIXME: should we test DRAM if NVRAM is bogus? */
+	return (POT_ON | TEST_DRAM_POT);	/* test DRAM */
+}
+
+
+void
+print_memory_test_result(adr)
+	volatile u_int  adr;
+{
+	void            printSIMMNumber();
+	struct mon_global *mg = restore_mg();
+	u_int           result;
+
+	if (!adr)
+		return;
+
+	/* allow error messages to be seen */
+	mg->km.flags &= ~KMF_INIT;
+	mg->km.flags |= KMF_SEE_MSGS;
+
+	*(int *)adr = 0x55555555;
+	result = *(int *)adr;
+	if (result != 0x55555555) {
+		printSIMMNumber(adr, 0x55, &result, -1);
+		return;
+	}
+	*(int *)adr = 0xaaaaaaaa;
+	result = *(int *)adr;
+	if (result != 0xaaaaaaaa) {
+		printSIMMNumber(adr, 0xaa, &result, -2);
+		return;
+	}
+	*(int *)adr = 0xaaaaaaaa;
+	*(int *)(adr + 4) = 0x55555555;	/* check for adr uniquness */
+	result = *(int *)adr;
+	if (result != 0xaaaaaaaa) {
+		printSIMMNumber(adr, 0xaa, &result, -3);
+		return;
+	}
+	printf("Soft DRAM error at address %x.\n", adr);
+	return;
+}
+
+void
+printSIMMNumber(adr, value, data, type)
+	u_int           adr;
+	u_char          value, *data;
+	char            type;
+{
+	int             cnt, bank = ((adr >> 24) & 0x0f) - 4;
+
+	printf("\nDRAM error %d, at address %x.\n", type, adr);
+	printf("\nCheck SIMM ");
+	for (cnt = 0; cnt < 4; cnt++) {
+		if (data[cnt] != 0xaa)
+			printf("%d", ((4 * bank) + cnt + 1));
+	}
+	printf("\n");
+	return;
+}
+
+void
+serialPrint(portID, stringPtr)
+/* Simple routine to print debug messages out through a serial port */
+
+	char            portID;
+	char           *stringPtr;
+
+{
+
+	char           *portPtr = (portID == 'a') ? SCC_PORT_A : SCC_PORT_B;
+	char            data;
+	int             cnt;
+
+	data = *portPtr;	/* make sure SCC is looking for a command */
+	do {
+		do
+			*portPtr = 0;	/* check status register */
+		while (!(*portPtr & 4));	/* wait for Tx buffer
+						 * empty */
+		*(portPtr + 2) = *stringPtr++;	/* send next character */
+	} while (*stringPtr);
+	return;
+}
+
+
+
+static
+intrSetUp()
+{				/* create some asm for intrs */
+	asm(".globl _SCSIIntrHandler");
+	asm("_SCSIIntrHandler:");
+	asm("moveml	#0x7ffe,sp@-");
+	asm("jsr	_SCSIIntr");
+	asm("moveml	sp@+,#0x7ffe");
+	asm("rte");
+
+	asm(".globl _SCCIntrHandler");
+	asm("_SCCIntrHandler:");
+	asm("moveml	#0x7ffe,sp@-");
+	asm("jsr	_SCCIntr");
+	asm("moveml	sp@+,#0x7ffe");
+	asm("rte");
+
+	asm(".globl _SystemTimerIntrHandler");
+	asm("_SystemTimerIntrHandler:");
+	asm("moveml	#0x7ffe,sp@-");
+	asm("jsr	_SystemTimerIntr");
+	asm("moveml	sp@+,#0x7ffe");
+	asm("rte");
+
+	asm(".globl _SoundOutIntrHandler");
+	asm("_SoundOutIntrHandler:");
+	asm("moveml	#0x7ffe,sp@-");
+	asm("jsr	_SoundOutIntr");
+	asm("moveml	sp@+,#0x7ffe");
+	asm("rte");
+
+	asm(".globl _SoundOutOverRunIntrHandler");
+	asm("_SoundOutOverRunIntrHandler:");
+	asm("moveml	#0x7ffe,sp@-");
+	asm("jsr	_SoundOutOverRunIntr");
+	asm("moveml	sp@+,#0x7ffe");
+	asm("rte");
+}
+
+
+
+SCCIntr()
+{				/* interrupt handler for SCC DMA */
+	/* FIXME: Need to do something better here? ... */
+
+	*(char *)P_SCC_CSR = SCC_CSR_CLEAR | SCC_CSR_WRITE;
+	*(char *)P_SCC_CSR = 0;
+}
+
+
+
+long
+SCCTest()
+/*
+ * This test sets the SCC chip up for LOCAL LOOPBACK, 9600, no parity, 1
+ * stop bit, and checks if a character can be written and read back. 
+ *
+ * Remember that "internal" loop back prints out the test character. 
+ *
+ */
+
+{
+
+	/*
+	 * following array is a list of SCC reg id, and parm pairs.
+	 * Register 4 is loaded with 0x44, then reg 11 with 0x50... 
+	 */
+
+	static char     initializationSequence[] = {
+				   4, 0x44, 11, 0x50, 14, 0x10, 12, 0x0a,
+				   13, 0x00, 14, 0x11, 10, 0x00, 3, 0xc1,
+						    5, 0xea, 15, 0x00};
+
+	register char  *seq = initializationSequence;
+	volatile register struct scc_dev *scc = (struct scc_dev *) P_SCC;
+	register char   cnt, data;
+
+	int             SCCIntrHandler();
+
+	volatile struct scc_tc *sc;
+	struct dma_buf *bp;
+	volatile struct dma_channel *dma;
+	struct mon_global *mg = restore_mg();
+	struct scb     *get_vbr(), *vbr;
+	u_char         *nb;
+	int             (*old_interrupt_handler) (), old_interrupt_mask;
+	int             dmacsr, i;
+
+	/* Use DMA to check port A */
+
+	sc = (struct scc_tc *) mon_alloc(sizeof(struct scc_tc));
+	sc->dev_regs = (struct scc_dev *) P_SCC;	/* point to SCC chip
+							 * regs */
+	sc->dmacsr = (char *)P_SCC_CSR;	/* ptr to DMA csr */
+	sc->dma_regs = (struct dma_channel *) (P_SCC_CSR + 0x4000);	/* ptr to DMA regs */
+
+
+	/* force a hardware reset with port A, reg 9 */
+
+	data = scc->a_reg0;	/* make sure SCC is looking for a command */
+	scc->a_reg0 = 9;	/* use port A, reg 9 to reset chip */
+	scc->a_reg0 = 0xca;	/* reset ports A and B, no interrupt
+				 * vector */
+
+
+	/* down load the SCC port A control registers */
+
+	for (cnt = 0; cnt < sizeof(initializationSequence); cnt++)
+		scc->a_reg0 = *seq++;
+
+
+	/* down load the SCC port B control registers */
+
+	data = scc->b_reg0;	/* is SCC looking for cmd? */
+	seq = initializationSequence;
+	for (cnt = 0; cnt < sizeof(initializationSequence); cnt++)
+		scc->b_reg0 = *seq++;
+
+
+	/* Enable SCC DMA interrupts */
+
+	vbr = get_vbr();
+	old_interrupt_handler = vbr->scb_ipl[6 - 1];
+	old_interrupt_mask = *mg->mg_intrmask;
+	vbr->scb_ipl[6 - 1] = SCCIntrHandler;
+	/* FIXME: use the "official name for the bits in the intrmask */
+	*mg->mg_intrmask = 0x00200000;
+	asm("movw #0x2500,sr");
+
+
+	/*
+	 * Keep in mind that the SCC supports xmit OR recv DMA, but not
+	 * both 
+	 */
+
+
+	/* Set up the SCC port A for transmit DMA with W/REQ */
+
+	*(sc->dmacsr) = SCC_CSR_CLEAR | SCC_CSR_WRITE;	/* set up DMA csr */
+	*(sc->dmacsr) = 0;
+	*(sc->dmacsr) = SCC_CSR_WRITE;	/* set dir for mem to dev */
+
+	nb = sc->tdata;
+	*nb = SCC_TEST_CHAR;
+
+	dma = sc->dma_regs;	/* make code cleaner?!? */
+	dma->next = nb;
+	dma->limit = ++nb;
+
+	data = scc->a_reg0;	/* is SCC looking for cmd? */
+	scc->a_reg0 = 1;	/* port A, reg 1 */
+	scc->a_reg0 = 0x40;	/* want request for transmit DMA */
+	*(sc->dmacsr) = SCC_CSR_WRITE | SCC_CSR_ENABLE;
+
+	/* Transmit a char */
+
+	data = scc->a_reg0;	/* is SCC looking for cmd? */
+	scc->a_reg0 = 1;	/* port A, reg 1 */
+	scc->a_reg0 = 0xc0;	/* enable transmit DMA */
+
+	/* Wait for the transfer to complete */
+
+	i = 0;
+	/* FIXME: The bus error bit is often on; why is this? */
+	while (++i < 100000);	/* is it going to happen */
+	if (*(sc->dmacsr) & 0xf)/* intr handler zeros dmacsr */
+		return (1);
+
+	/* Check if we recieved the correct character */
+
+	i = 0;
+	do
+		scc->a_reg0 = 0;/* check status register */
+	while (!(scc->a_reg0 & 1) && (i++ < 100000));	/* wait for char */
+	if (i == 100000)
+		return (2);
+
+	if (scc->a_data != SCC_TEST_CHAR)	/* char doesn't match */
+		return (3);
+
+	data = scc->a_reg0;	/* is SCC looking for cmd? */
+	scc->a_reg0 = 1;	/* port A, reg 1 */
+	scc->a_reg0 = 0x00;	/* disable DMA */
+
+	/* Clean up the interrupt system */
+
+	asm("movw #0x2700,sr");	/* turn off interrupt */
+	vbr->scb_ipl[6 - 1] = old_interrupt_handler;	/* restore handler */
+	*mg->mg_intrmask = old_interrupt_mask;	/* restore mask */
+
+	*(sc->dmacsr) = SCC_CSR_CLEAR | SCC_CSR_WRITE;	/* turn off DMA */
+
+	data = scc->a_reg0;	/* is SCC looking for cmd? */
+	scc->a_reg0 = 1;	/* port A, reg 1 */
+	scc->a_reg0 = 0x00;	/* disable DMA */
+
+
+	/* Check port B */
+
+	data = scc->b_reg0;	/* make sure SCC wants a cmd */
+
+	do
+		scc->b_reg0 = 0;/* check status register */
+	while (!(scc->b_reg0 & 4));	/* wait for Tx buffer empty */
+
+	scc->b_data = SCC_TEST_CHAR;	/* send test character */
+
+	i = 0;
+	do
+		scc->b_reg0 = 0;/* check status register */
+	while (!(scc->b_reg0 & 1) && (i++ < 1000000));	/* wait for char */
+	if (i == 1000000)
+		return (6);
+
+	if (scc->b_data != SCC_TEST_CHAR)	/* char doesn't match */
+		return (7);
+
+
+	/* both ports seem to work. */
+
+	return (0);
+}
+
+
+
+SCSIIntr()
+{
+	printf("Ooops... got a SCSI DMA interrupt?!!?\n");
+}
+
+
+
+long
+SCSITest()
+/*
+ * Checks if the 53c90 chip can be addressed, and if it can pass the suite
+ * of self tests proposed by the NCR "53c90 Users Guide". 
+ */
+
+{
+	volatile struct scsi_5390_regs *s5rp = (struct scsi_5390_regs *) P_SCSI;
+	char            reg;
+	int             counter;
+	long            cnt;
+
+#define S5RDMAC_NOINTRBITS	S5RDMAC_20MHZ
+
+	/* reset the 53c90 */
+
+	s5rp->s5r_dmactrl = S5RDMAC_NOINTRBITS | S5RDMAC_RESET;
+	DELAY(10);
+	s5rp->s5r_dmactrl = S5RDMAC_NOINTRBITS;
+	DELAY(10);
+	s5rp->s5r_cmd = S5RCMD_RESETCHIP;
+	s5rp->s5r_cmd = S5RCMD_NOP;
+
+
+	/* check if the fifo works */
+
+	s5rp->s5r_fifo = 0;
+	s5rp->s5r_fifo = 1;
+	s5rp->s5r_fifo = 2;
+	s5rp->s5r_fifo = 3;
+	s5rp->s5r_fifo = 4;
+	reg = s5rp->s5r_fifoflags & S5RFLG_FIFOLEVELMASK;
+	if (reg != 5)
+		return (1);	/* check if 5 bytes made it to chip */
+
+	reg = s5rp->s5r_fifo;
+	if (reg != 0)
+		return (2);	/* make sure we get the correct data */
+	reg = s5rp->s5r_fifo;
+	if (reg != 1)
+		return (2);	/* ditto.. */
+
+	reg = s5rp->s5r_fifoflags & S5RFLG_FIFOLEVELMASK;
+	if (reg != 3)
+		return (3);	/* check if 3 bytes are still in FIFO */
+	return (0);
+
+
+}
+
+
+
+long
+ExtendedSCSITest()
+/*
+ * Checks if the 53c90 chip can be addressed, and if it can pass the suite
+ * of self tests proposed by the NCR "53c90 Users Guide". 
+ */
+
+{
+	volatile struct scsi_5390_regs *s5rp = (struct scsi_5390_regs *) P_SCSI;
+	char            reg;
+	int             counter;
+	long            cnt;
+
+#define S5RDMAC_NOINTRBITS	S5RDMAC_20MHZ
+
+	/* reset the 53c90 */
+
+	s5rp->s5r_dmactrl = S5RDMAC_NOINTRBITS | S5RDMAC_RESET;
+	DELAY(10);
+	s5rp->s5r_dmactrl = S5RDMAC_NOINTRBITS;
+	DELAY(10);
+	s5rp->s5r_cmd = S5RCMD_RESETCHIP;
+	s5rp->s5r_cmd = S5RCMD_NOP;
+
+	/*
+	 * FIXME: Chip's cmd reg doesn't work if SCSI bus is unterminated,
+	 * so test will fail on early rev boards that don't have the SCSI
+	 * bus terminated... 
+	 */
+
+	/* FIXME: Should check if the SCSI DMA channel is working */
+	/* to see if cmd reg works, check if flush FIFO cmd works */
+
+	/*
+	 * FIXME: 53c90 will not accept commands if the bus is
+	 * unterminated 
+	 */
+	s5rp->s5r_cmd = S5RCMD_FLUSHFIFO;
+	DELAY(10);
+	reg = s5rp->s5r_fifoflags & S5RFLG_FIFOLEVELMASK;
+	if (reg != 0)
+		return (4);
+
+
+	/* check if the counter works */
+
+	s5rp->s5r_cntlsb = (char)0x55;
+	s5rp->s5r_cntmsb = (char)0x55;
+	s5rp->s5r_cmd = S5RCMD_ENABLEDMA | S5RCMD_NOP;	/* move data to cntr */
+	counter = s5rp->s5r_cntmsb << 8 | s5rp->s5r_cntlsb;
+	if (counter != 0x5555)
+		return (5);
+
+	s5rp->s5r_cntlsb = (char)0xaa;
+	s5rp->s5r_cntmsb = (char)0xaa;
+	s5rp->s5r_cmd = S5RCMD_ENABLEDMA | S5RCMD_NOP;	/* move data to cntr */
+	counter = s5rp->s5r_cntmsb << 8 | s5rp->s5r_cntlsb;
+	if (counter != 0xaaaa)
+		return (6);
+
+
+	/* check if the configuration register works */
+
+	for (cnt = 0; cnt <= 255; cnt++) {	/* go wild! check every
+						 * value... */
+		s5rp->s5r_config = cnt;
+		if (s5rp->s5r_config != cnt)
+			return (7);
+	}
+	s5rp->s5r_config = 0;	/* return to a wholesome configuration */
+
+
+	/* check if the "interrupts" work */
+
+	/*
+	 * FIXME: Really ought to enable an interrupt and field it. Right
+	 * now only the interrupt register is checked... 
+	 */
+
+	reg = s5rp->s5r_intrstatus;	/* clear left over interrupts */
+	s5rp->s5r_cmd = 0xff;	/* give an illegal command */
+	DELAY(10);
+	reg = s5rp->s5r_intrstatus;
+	if (~reg & S5RINT_ILLEGALCMD)
+		return (8);	/* illegal bit wasn't on */
+
+
+	/* chip's ok, clean up it's state */
+
+	s5rp->s5r_cmd = S5RCMD_RESETCHIP;
+	s5rp->s5r_cmd = S5RCMD_NOP;
+
+	return (0);
+}
+
+
+
+long
+EtherNetTest()
+/*
+ * Checks if the board can transmit and receive, (in loopback mode), a
+ * physical and broadcast packet and reject a physical packet with the
+ * incorrect address. 
+ */
+
+{
+	caddr_t         mon_alloc();
+
+	extern struct device enet_en;
+	extern struct u_char etherbcastaddr[];
+
+	struct sio      sio;
+	struct tftp_softc *ts;
+
+	struct sio     *si = &sio;
+
+	u_char         *etheradr;
+	static u_char   destadr[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	int             len, packetSize;
+	long            cnt;
+	caddr_t         p, packet, testPacket;
+
+#define	MAX_PACKET_SIZE	1500
+#define POLL_CNT_LIMIT	1000
+
+	bzero(si, sizeof(*si));	/* zero the SIO struct */
+	si->si_unit = 0x00;	/* set debug level */
+	si->si_args = SIO_ANY;	/* Set type of SIO desired */
+	si->si_part = 0;
+	si->si_dev = &enet_en;	/* Want to use the enet driver */
+	si->si_protomem = mon_alloc(sizeof(struct tftp_softc));	/* Alloc bufs */
+	ts = (struct tftp_softc *) si->si_protomem;
+	bcopy(etherbcastaddr, ts->ts_serveretheraddr, 6);	/* Listen for bcasts */
+
+	etheradr = (u_char *) en_open(si);	/* Should return our enet
+						 * adr */
+	if (!etheradr)
+		return (1);	/* 0!?!, must not have worked */
+	bcopy(etheradr, ts->ts_clientetheraddr, 6);	/* set our physical adr */
+
+	packetSize = MAX_PACKET_SIZE;
+	p = packet = (caddr_t) mon_alloc(packetSize);
+	bzero(packet, packetSize);
+
+	/* enter loopback mode */
+
+	((struct en_regs *) P_ENET)->en_txmode &= ~EN_TXMODE_NO_LBC;
+
+	/* clear rx_buf of leftovers */
+
+	for (cnt = 0; cnt < POLL_CNT_LIMIT; cnt++)
+		if (len = en_poll(si, packet, ts, packetSize))
+			cnt = 0;
+
+	if (len) {		/* couldn't drain rx_buf */
+		en_close(si);	/* all done with enet */
+		return (2);
+	}
+	/* send ourselves a packet */
+
+	p = testPacket = (caddr_t) mon_alloc(packetSize);
+	bcopy(etheradr, p, 6);
+	p += 6;			/* set dest = ourselves */
+	bcopy(etheradr, p, 6);
+	p += 6;			/* "" for source */
+	*p++ = 0x55;
+	*p++ = 0xaa;		/* set type to 0x55aa */
+	for (cnt = 0; cnt < packetSize - 6 - 6 - 2; cnt++)
+		*p++ = cnt;	/* "message" */
+
+	en_write(si, testPacket, packetSize);
+
+	/* did our message get received? */
+
+	packet = (caddr_t) mon_alloc(packetSize);
+	for (cnt = 0; cnt < POLL_CNT_LIMIT; cnt++)
+		if (len = en_poll(si, packet, ts, packetSize))
+			break;
+
+	if (cnt == POLL_CNT_LIMIT) {	/* didn't receive the packet */
+		en_close(si);	/* all done with enet */
+		return (3);
+	}
+	if (bcmp(packet, testPacket, packetSize)) {	/* packet was garbled */
+		en_close(si);	/* all done with enet */
+		return (4);
+	}
+	/* hack our address and see if packet is received */
+
+	((struct en_regs *) P_ENET)->en_enetaddr[5]++;
+	en_write(si, testPacket, packetSize);
+	bzero(packet, packetSize);
+	for (cnt = 0; cnt < POLL_CNT_LIMIT; cnt++)
+		if (len = en_poll(si, packet, ts, packetSize))
+			break;
+
+	if (cnt != POLL_CNT_LIMIT) {	/* received a packet in error */
+		en_close(si);	/* all done with enet */
+		return (5);
+	}
+	/* use bcast address and see if packet is received */
+
+	for (cnt = 0; cnt < 6; testPacket[cnt++] = 0xff);
+	en_write(si, testPacket, packetSize);
+	bzero(packet, packetSize);
+	for (cnt = 0; cnt < POLL_CNT_LIMIT; cnt++)
+		if (len = en_poll(si, packet, ts, packetSize))
+			break;
+
+	if (cnt == POLL_CNT_LIMIT) {	/* didn't receive bcast pkt */
+		en_close(si);	/* all done with enet */
+		return (6);
+	}
+	if (bcmp(packet, testPacket, packetSize)) {	/* bcast pkt was garbled */
+		en_close(si);	/* all done with enet */
+		return (7);
+	}
+	/* exit loopback mode */
+
+	((struct en_regs *) P_ENET)->en_txmode = EN_TXMODE_NO_LBC;
+	en_close(si);		/* all done with enet */
+	return (0);
+}
+
+
+
+long
+MODriveTest()
+{
+	u_char         *input_block, *coded_block, *result_block;
+	volatile struct disk_tc *sc;
+	volatile struct disk_dev *disk;
+	volatile struct dma_channel *dma;
+
+	u_char          temp, *ptr;
+	int             cnt;
+
+	/* Use DMA to check MO Disk ECC */
+
+	sc = (struct disk_tc *) mon_alloc(sizeof(struct disk_tc));
+	sc->dev_regs = (struct disk_dev *) P_DISK;	/* point to DISK chip
+							 * regs */
+	sc->dmacsr = (char *)P_DISK_CSR;	/* ptr to DMA csr */
+	sc->dma_regs = (struct dma_channel *) (P_DISK_CSR + 0x4000);	/* ptr to DMA regs */
+
+	disk = sc->dev_regs;
+	dma = sc->dma_regs;
+
+	/* allocate a buffer of data to be encoded */
+
+	input_block = (u_char *) mon_alloc(UNCODED_DISK_BLOCK_SIZE + CHIP_SLOP);
+	coded_block = (u_char *) mon_alloc(CODED_DISK_BLOCK_SIZE + CHIP_SLOP);
+	result_block = (u_char *) mon_alloc(UNCODED_DISK_BLOCK_SIZE + CHIP_SLOP);
+
+	/* initialize the buffers */
+
+	input_block = (u_char *) (((int)input_block & ~0xf) + 0x10);
+	coded_block = (u_char *) (((int)coded_block & ~0xf) + 0x10);
+	result_block = (u_char *) (((int)result_block & ~0xf) + 0x10);
+
+	for (cnt = 0; cnt < UNCODED_DISK_BLOCK_SIZE; input_block[cnt++] = cnt);
+	bzero(coded_block, CODED_DISK_BLOCK_SIZE);
+	bzero(result_block, UNCODED_DISK_BLOCK_SIZE);
+
+	/* Set up the disk chip */
+
+	disk->flag_strategy[0] = 0x35;
+	disk->flag_strategy[1] = 0;
+	disk->flag_strategy[2] = 0;
+	disk->flag_strategy[3] = 0x33;
+	disk->flag_strategy[4] = 0x44;
+	disk->flag_strategy[5] = 0x35;
+	disk->flag_strategy[6] = 0x33;
+
+	disk->control_2 = 0;	/* init the control reg */
+	disk->interrupt_status = DISK_STATUS_CLEAR;	/* clear the status reg */
+	disk->interrupt_mask = 0x00;	/* punt interrupts */
+	disk->control_2 = DISK_ECC_SELECT | DISK_ECC_ENCODE;
+
+	/* Set up the DMA */
+
+	*(sc->dmacsr) = DISK_CSR_CLEAR | DISK_CSR_WRITE;	/* set DMA csr up */
+	*(sc->dmacsr) = 0;
+	*(sc->dmacsr) = DISK_CSR_WRITE;	/* set dir for mem to dev */
+	dma->next = input_block;
+	dma->limit = input_block + UNCODED_DISK_BLOCK_SIZE;
+	*(sc->dmacsr) = DISK_CSR_WRITE | DISK_CSR_ENABLE;
+
+	/* Transfer the data */
+
+	disk->control_1 = DISK_ECC_WRITE;
+	cnt = 0;
+	while (!(disk->interrupt_status & 0x08))
+		if (++cnt > 1000000)
+			return (1);
+
+	/* Use DMA to read the encoded data back */
+
+	*(sc->dmacsr) = DISK_CSR_CLEAR | DISK_CSR_READ;	/* set the DMA csr up */
+	*(sc->dmacsr) = 0;
+	*(sc->dmacsr) = DISK_CSR_READ;	/* set dir for dev to mem */
+	dma->next = coded_block;
+	dma->limit = coded_block + CODED_DISK_BLOCK_SIZE;
+	*(sc->dmacsr) = DISK_CSR_READ | DISK_CSR_ENABLE;
+
+	disk->interrupt_status = DISK_STATUS_CLEAR;	/* clear the status reg */
+	disk->control_1 = DISK_ECC_READ;
+	cnt = 0;
+	while (!(disk->interrupt_status & 0x08))
+		if (++cnt > 1000000)
+			return (2);
+
+
+	/* Mangle encoded data */
+
+	coded_block[1] = ~coded_block[1];
+	coded_block[50] = coded_block[50] + 1;
+	coded_block[100] = ~coded_block[100] - 100;
+	coded_block[200] = coded_block[200] + 255;
+	coded_block[777] = ~coded_block[777];
+	coded_block[890] = coded_block[890] + 23;
+	coded_block[1111] = coded_block[1110] + 39;
+	coded_block[1290] = coded_block[1290] + 22;
+	for (cnt = 0; cnt < 32; cnt++)
+		coded_block[cnt + 533] = (~coded_block[cnt + 533] % 47) + 37;
+
+	/* Send the mangled data to ECC for correction */
+
+	*(sc->dmacsr) = DISK_CSR_CLEAR | DISK_CSR_WRITE;	/* set DMA csr up */
+	*(sc->dmacsr) = 0;
+	*(sc->dmacsr) = DISK_CSR_WRITE;	/* set dir for mem to dev */
+	dma->next = coded_block;
+	dma->limit = coded_block + CODED_DISK_BLOCK_SIZE;
+	*(sc->dmacsr) = DISK_CSR_WRITE | DISK_CSR_ENABLE;
+
+	disk->interrupt_status = DISK_STATUS_CLEAR;	/* clear the status reg */
+	disk->control_2 = DISK_ECC_SELECT | DISK_ECC_DECODE;
+	disk->control_1 = DISK_ECC_WRITE;
+	cnt = 0;
+	while (!(disk->interrupt_status & 0x08))
+		if (++cnt > 1000000)
+			return (3);
+
+	/*
+	 * FIXME: The ECC counts the 32 contigous errors as 28, so total
+	 * is 36, not 40 
+	 */
+	if (disk->correction_count != 36)
+		return (4);
+
+	/* Use DMA to read the corrected data back */
+
+	*(sc->dmacsr) = DISK_CSR_CLEAR | DISK_CSR_READ;	/* set the DMA csr up */
+	*(sc->dmacsr) = 0;
+	*(sc->dmacsr) = DISK_CSR_READ;	/* set dir for dev to mem */
+	dma->next = result_block;
+	dma->limit = result_block + UNCODED_DISK_BLOCK_SIZE;
+	*(sc->dmacsr) = DISK_CSR_READ | DISK_CSR_ENABLE;
+
+	disk->interrupt_status = DISK_STATUS_CLEAR;	/* clear the status reg */
+	disk->control_1 = DISK_ECC_READ;
+	cnt = 0;
+	while (!(disk->interrupt_status & 0x08))
+		if (++cnt > 1000000)
+			return (5);
+
+
+	/* check the corrected data */
+
+	if (bcmp(input_block, result_block, UNCODED_DISK_BLOCK_SIZE))
+		return (6);
+
+	/* disk chip seems to work, reset the DMA */
+
+	*(sc->dmacsr) = DISK_CSR_CLEAR | DISK_CSR_WRITE;
+	*(sc->dmacsr) = DISK_CSR_CLEAR | DISK_CSR_READ;
+
+	return (0);
+}
+
+
+
+long
+RTCTest()
+{
+	int             seconds, cnt = 0;
+
+	rtc_write(RTC_INTRCTL, 0);
+	rtc_write(RTC_CONTROL, RTC_START | RTC_XTAL);
+
+	seconds = rtc_read(RTC_SEC);
+	while (seconds == rtc_read(RTC_SEC))	/* wait for clock to tick */
+		if (++cnt >= 30000)	/* It's not going to happen */
+			return (1);
+	return (0);
+	/* FIXME: check if the alarm works and the interrupt is ok */
+}
+
+
+SystemTimerIntr()
+{				/* interrupt handler for system timer */
+	volatile char   temp;
+
+	if (temp = *(char *)P_TIMER_CSR);	/* clear interrupt with a
+						 * read */
+	*(char *)P_TIMER_CSR = 0;
+}
+
+
+
+long
+SystemTimerTest()
+{
+
+	int             SystemTimerIntrHandler();
+
+	struct mon_global *mg = restore_mg();
+	struct scb     *get_vbr(), *vbr;
+	int             (*old_interrupt_handler) (), old_interrupt_mask;
+
+	volatile int   *scr2 = SID(P_SCR2, int *);
+	volatile u_char temp, *timer_csr = (u_char *) P_TIMER_CSR;
+	volatile register u_char *timer_hi = (u_char *) P_TIMER;
+	volatile register u_char *timer_lo = (u_char *) P_TIMER + 1;
+	register u_short timer;
+	register int    cnt = 0;
+
+#define timer_set(t)  \
+	(*timer_lo = 0xff, *timer_hi = (t)>>8, *timer_lo = (t)&0xff)
+
+	*scr2 &= ~SCR2_TIMERIPL7;
+
+	*timer_csr = TIMER_ENABLE;
+	*timer_csr = 0;
+	for (cnt = 0; cnt < 0x10000; cnt++) {
+		*timer_lo = 0xff & cnt;
+		*timer_hi = 0xff & (cnt >> 8);
+		*timer_lo = 0xff & cnt;
+		*timer_csr = TIMER_UPDATE;
+		timer = (*timer_hi << 8) + *timer_lo;
+		if (timer != cnt)
+			return (2);	/* latch is broken */
+	}
+
+	vbr = get_vbr();
+	old_interrupt_handler = vbr->scb_ipl[6 - 1];
+	old_interrupt_mask = *mg->mg_intrmask;
+	vbr->scb_ipl[6 - 1] = SystemTimerIntrHandler;
+	/* FIXME: use the "official name for the bits in the intrmask */
+	*mg->mg_intrmask = 0x20000000;
+	temp = *timer_csr;	/* clear leftover intrs */
+	asm("movw #0x2500,sr");
+
+	*timer_csr = 0;		/* set timer for 1000 us = 1ms */
+	timer_set(0x1000);
+	*timer_csr = TIMER_ENABLE | TIMER_UPDATE;
+	cnt = 0;
+	while (*timer_csr & TIMER_ENABLE)
+		if (++cnt >= 0x100000)	/* intr doesn't work */
+			return (3);
+
+	*timer_csr = 0;
+	asm("movw #0x2700,sr");	/* turn off ints */
+	vbr->scb_ipl[6 - 1] = old_interrupt_handler;	/* restore handler */
+	*mg->mg_intrmask = old_interrupt_mask;	/* restore mask */
+
+	return (0);
+}
+
+
+long
+EventCounterTest()
+{
+#define	NUMBER_OF_EVENT_COUNTER_SAMPLES 100
+#define MIN_EVENT_COUNTER_DELTA		2
+#define MAX_EVENT_COUNTER_DELTA		10
+
+	char            rollover = 0;
+	u_int           eventCnt2, value[100];
+	volatile register u_int *ptr = value, *eventc = (u_int *) P_EVENTC, cnt;
+
+	cnt = 0;		/* does eventc move? */
+	eventCnt2 = 0xfffff & *eventc;
+	while (eventCnt2 == (0xfffff & *eventc))
+		if (++cnt >= 0x100)
+			return (1);
+
+	/*
+	 * have to capture values and then check them since eventc is so
+	 * fast 
+	 */
+
+	ptr = value;
+	for (cnt = 0; cnt < NUMBER_OF_EVENT_COUNTER_SAMPLES; cnt++)
+		*ptr++ = 0xfffff & *eventc;
+
+	for (cnt = 1; cnt < NUMBER_OF_EVENT_COUNTER_SAMPLES; cnt++)
+		value[cnt - 1] = 0xfffff & (value[cnt] - value[cnt - 1]);
+
+	/* First samples is asynchronous to the rest... */
+
+	for (cnt = 1; cnt < NUMBER_OF_EVENT_COUNTER_SAMPLES - 1; cnt++)
+		if ((value[cnt] < MIN_EVENT_COUNTER_DELTA)
+		    || (value[cnt] > MAX_EVENT_COUNTER_DELTA)) {
+			if (!rollover)
+				rollover = 1;	/* 1 roll is ok */
+			else
+				return (value[cnt]);
+		}
+	return (0);
+}
+
+SoundOutOverRunIntr()
+{				/* interrupt handler for Sound out over */
+	printf("Sound Out Over Run Interrupt.\n");
+}
+
+
+
+#define FIFTY_MICROSEC 500
+SoundOutIntr()
+{				/* interrupt handler for Sound out DMA */
+	void            mon_send_nodma();
+
+	/* clear interupt */
+
+	*(char *)P_SOUNDOUT_CSR = SOUNDOUT_CSR_CLEAR | SOUNDOUT_CSR_WRITE;
+	*(char *)P_SOUNDOUT_CSR = 0;
+
+	mon_send_nodma(MON_SNDOUT_CTRL(0), 0);	/* turn off monitor */
+	DELAY(FIFTY_MICROSEC);
+}
+
+
+
+long
+SoundOutTest()
+{
+	short          *SineForSoundOut();
+	int             SoundOutIntrHandler();
+	void            mon_send_nodma();
+	void            setVol();
+
+	struct mon_global *mg = restore_mg();
+	struct nvram_info *ni = &mg->mg_nvram;
+	struct scb     *get_vbr(), *vbr;
+	int             (*old_interrupt_handler) (), old_interrupt_mask;
+
+	short          *dacData;
+	volatile char  *dmacsr = (char *)P_SOUNDOUT_CSR;
+	volatile int   *dmaNext = (int *)(P_SOUNDOUT_CSR + 0x4000);
+	volatile int   *dmaLimit = (int *)(P_SOUNDOUT_CSR + 0x4000 + 0x4);
+	volatile int   *dmaStart = (int *)(P_SOUNDOUT_CSR + 0x4000 + 0x8);
+	volatile int   *dmaStop = (int *)(P_SOUNDOUT_CSR + 0x4000 + 0xc);
+	volatile struct monitor *mon = (struct monitor *) P_MON;
+
+#define MAX_RETRY 8
+
+	int             i, retry = MAX_RETRY, result = 0;
+	register int    gpFlags, vol_r, vol_l;
+
+
+	/* dma must end on nibble */
+
+	/*
+	 * FIXME: sineforsound routine calculates 64K of sound, only 8k
+	 * used 
+	 */
+	dacData = (short *)mon_alloc(0x10000 + CHIP_SLOP);
+	dacData = (short *)(((int)dacData & ~0xf) + 0x10);
+
+
+	/* enable sound out DMA interrupts */
+
+	vbr = get_vbr();
+	/*
+	 * FIXME: Ignore sound out dma underrun ?  yes, a failure is a
+	 * failure 
+	 */
+	old_interrupt_handler = vbr->scb_ipl[6 - 1];
+	vbr->scb_ipl[6 - 1] = SoundOutIntrHandler;
+	old_interrupt_mask = *mg->mg_intrmask;
+	/* FIXME: use the "official name for the bits in the intrmask */
+	*mg->mg_intrmask = 0x00800000;
+	asm("movw #0x2500,sr");
+
+	/* Set up monitor control register */
+
+	mon->mon_csr.dmaout_dmaen = 0;	/* disable sound out */
+	mon_send_nodma(MON_SNDOUT_CTRL(0), 0);	/* sound off cmd */
+	DELAY(FIFTY_MICROSEC);
+	clr_so_urun();		/* reset overrun error bit */
+
+	/* set the volume using values stored in NVRAM */
+
+	gpFlags = ni->ni_spkren ? SGP_SPKREN << 24 : 0;
+	gpFlags |= ni->ni_lowpass ? SGP_LOWPASS << 24 : 0;
+	setVol(VOLUME_LCHAN, gpFlags, ni->ni_vol_l);
+	setVol(VOLUME_RCHAN, gpFlags, ni->ni_vol_r);
+
+	/* Set up the DMA channel */
+
+	*dmacsr = SOUNDOUT_CSR_CLEAR | SOUNDOUT_CSR_WRITE;
+	*dmacsr = 0x0;
+	*dmacsr = SOUNDOUT_CSR_WRITE;
+	*dmaNext = (int)dacData;
+	*dmaLimit = 0x02000 + (int)dacData;
+	*dmaStart = (int)dacData;
+	*dmaStop = 0x02000 + (int)dacData;
+	*dmacsr = SOUNDOUT_CSR_WRITE | SOUNDOUT_CSR_ENABLE;
+
+	/* load up the sine table */
+
+	SineForSoundOut(dacData);
+
+	/* Send the data and wait for the interrupt */
+
+	mon->mon_csr.dmaout_dmaen = 1;	/* enable sound out */
+	while (!mon->mon_csr.dmaout_dmaen);	/* wait for bit to settle */
+	clr_so_urun();		/* reset overrun error bit */
+	mon_send_nodma(MON_SNDOUT_CTRL(1), 0);	/* sound on cmd */
+
+	while (retry > 0) {	/* try to start sound */
+		i = 0;
+		if (++i < FIFTY_MICROSEC) {
+			if (*dmaNext != *dmaStart) {	/* normal case */
+				clr_so_urun();	/* reset overrun error bit */
+				break;
+			}
+			if (mon->mon_csr.dmaout_ovr) {
+				if (*dmaNext == *dmaStart) {	/* wedged */
+					mon_send_nodma(0xc7, *dacData);
+					clr_so_urun();	/* reset overrun error
+							 * bit */
+					retry--;
+					continue;
+				} else {	/* spurious overrun */
+					clr_so_urun();	/* reset overrun error
+							 * bit */
+					break;
+				}
+			}
+		}
+		if (i == FIFTY_MICROSEC) {
+			result = 1;	/* didn't start or underrun, fatal
+					 * error */
+			printf("\nFatal Sound Out DMA error!!!\n");
+			break;
+		}
+	}
+
+	/* whew!, got the sound out started, but does it work? */
+
+	if (result == 0) {	/* it started */
+		/*
+		 * FIME: put in a decent call to a timer long enough for
+		 * sound to finish 
+		 */
+		DELAY(100000);
+		if (0xf & *dmacsr) {	/* intr handler zeros dmacsr */
+			result = 2;	/* test failed, no intr occured */
+		}
+	}
+	/* Clean up the interrupt system */
+
+	asm("movw #0x2700,sr");	/* turn off intrs */
+	vbr->scb_ipl[6 - 1] = old_interrupt_handler;	/* restore handler */
+	*mg->mg_intrmask = old_interrupt_mask;	/* restore mask */
+	mon_send_nodma(MON_SNDOUT_CTRL(0), 0);	/* send sound off cmd */
+	DELAY(FIFTY_MICROSEC);
+	mon->mon_csr.dmaout_dmaen = 0;	/* disable sound out */
+	mon->mon_csr.dmaout_ovr = 1;
+
+	return (result);
+}
+
+
+
+void
+mon_send_nodma(mon_cmd, data)
+	int             mon_cmd, data;
+{
+	struct monitor *mon = (struct monitor *) P_MON;
+
+	/*
+	 * mon_send waits for one complete dma cycle if dmaen is on but
+	 * must have dmaen on to avoid underrun when sending a sound out
+	 * cmd, hence this code stolen from sound.c, written by Gregg
+	 * Kellog. 
+	 *
+	 * Wait for any previous command to complete transmission 
+	 */
+
+	while (mon->mon_csr.ctx);
+	mon->mon_csr.cmd = mon_cmd;
+	mon->mon_data = data;
+	/*
+	 * FIXME: this delay value is ad hock; what is the "correct"
+	 * value? 
+	 */
+	DELAY(200);
+}
+
+
+void
+setVol(channel, flags, vol)
+	int             channel, flags, vol;
+{
+	char            i;
+	int             bits = 0x700 | channel | vol;
+
+	mon_send(MON_GP_OUT, flags);
+	DELAY(200);
+
+	for (i = 10; i >= 0; i--) {
+		mon_send(MON_GP_OUT, flags
+			 | ((bits & (1 << i)) ? (SGP_VSCD << 24) : 0));
+		DELAY(200);
+		mon_send(MON_GP_OUT, flags | (SGP_VSCCK << 24)
+			 | ((bits & (1 << i)) ? (SGP_VSCD << 24) : 0));
+		DELAY(200);
+	}
+	mon_send(MON_GP_OUT, flags);
+	DELAY(200);
+	mon_send(MON_GP_OUT, flags | (SGP_VSCS << 24));
+	DELAY(200);
+	mon_send(MON_GP_OUT, flags);
+	DELAY(200);
+}

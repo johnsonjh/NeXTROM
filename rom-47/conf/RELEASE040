@@ -1,0 +1,28 @@
+#
+# NeXT ROM Monitor
+#
+machine		"next"
+cpu		"MC68040"
+ident		GENERIC
+options		"MAJOR=2"
+options		"MINOR=0"
+options		"SEQ=57"
+options		MEGABIT
+makeoptions	"RELOC=01000000"
+#options		DEBUG
+options		NETBOOT
+#options		SRECBOOT
+#options		COMPBOOT
+options		SCSIBOOT
+options		ODBOOT
+options		FDBOOT
+options		SUN_NFS
+#options		ENETDIAG
+#options		PPKT
+#options		DBUG_DMA
+#
+# Work-arounds
+#
+makeoptions	"CC=/bin/rm -f $@; cc"
+makeoptions	"AS=/bin/rm -f $@; as"
+config		mon		swap generic

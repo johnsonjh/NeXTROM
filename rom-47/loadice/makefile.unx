@@ -1,0 +1,31 @@
+#   @(#)makefile    1.0
+#                   Copyright (c) 1990
+#   Grammar Engine, Incorporated,  Columbus, Ohio  USA
+#
+# Note: To compile and link programs on systems without a program maintenance
+#       utility, type the commands below after making the following
+#       substitutions:  change the string "$(CC)" to "cc"; change the string
+#       "$(FLAGS)" to "-O -DUNIX". etc.
+#
+#       For BSD dertivatives replace -DATNT with -DBSD in the FLAGS
+#
+CC=cc
+FLAGS= -O -DUNIX -DPI_BLOCK -DATNT
+
+all: loadice
+
+loadice:    loadice.o buildimg.o sysdep.o
+	$(CC) $(FLAGS) \
+	loadice.o \
+	buildimg.o \
+	sysdep.o \
+	-o loadice
+
+loadice.o: loadice.c loadice.h
+	$(CC) $(FLAGS) loadice.c -c
+
+buildimg.o: buildimg.c loadice.h
+	$(CC) $(FLAGS) buildimg.c -c
+
+sysdep.o: sysdep.c loadice.h
+	$(CC) $(FLAGS) sysdep.c -c

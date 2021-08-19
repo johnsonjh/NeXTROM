@@ -1,0 +1,75 @@
+LoadICE Version 1.4b
+
+
+See the 'release' file for major features and differences 
+from the old software:
+
+DISTRIBUTION MEDIA CONTENTS:
+
+The files that are included on the diskette are:
+
+1	readme	- this file
+2	release - release notes
+3	loadice.h - header file of definitions
+4	loadice.c - source code for command shell
+5	buildimg.c - source code for image builder
+6	sysdep.c - source code for system dependent stuff
+7	makefile.* - make files to create 'loadice.exe' file
+8	loadice2.hlp - help file for 'command' line
+9	loadice.hlp - help file for 'dialog' mode
+10	release.ini - example initialization file
+11	loadice.exe - the executable image of loadice command
+12	*.obj - object files for corresponding c modules
+13	hex.exe - prints image files in hex
+14	loadice.vms - command file for VMS
+15	*.tut - tutorial files
+16	loadice.ini - initialization file for tutorial
+
+UNIX USERS: We have learned that on several UNIX machines the tty
+device does not have read/write permissions set for other than 
+root. Use 'chmod' command to set '/dev/ttyx' to allow LoadICE to work
+from any user process.
+
+INSTALLATION NOTES:
+
+PC and COMPATIBLES: Copy the 'loadice.exe' file to your command 
+directory. Use file 'loadice.ini' and command line arguments to 
+specify the operating parameters when invoking 'loadice'. Use 'batch' 
+files to invoke command etc. Use the source files on the distribution 
+diskette if you wish to make some changes to the code.  Use 
+'makefile.pc' and the 'make' program utility to make new 
+'loadice.exe' file.
+
+UNIX MACHINES: Transfer software with some file transfer utility such 
+as kermit. Use 'makefile.unx' to create the command 'loadice'. Define 
+the compiler flags (-DUNIX, -DATNT or -DBSD) as appropriate for your
+system. The ATNT define makes it an AT&T UNIX based and BSD makes it a 
+Berkley Standard Distribution based. In addition to these defines there
+is -DPI_BLOCK for compiling the version of code that sends out an entire
+command sequence on single 'write' instead of just one character.
+
+You must specify the output device (either in file 'loadice.ini' or 
+on the command line) in form of '/dev/ttyn' etc.
+
+VMS USERS: Transfer the software to VMS machine via some utility such 
+as kermit. Edit the source files to remove NULLs from the end that 
+are sometimes left by kermit.  Use the command file 'makefile.com' to 
+invoke the compilation and linking of the executable module. The 
+command to load the Promice is invoked by a DCL file named 
+'loadice.vms'.  Do @loadice.vms and that will setup 'loadice' as
+a command name, then on you should be able to type the command line
+version of 'loadice' command as described in the manual. You may also
+choose to define some of the command line arguments in loadice.vms so 
+that they don't have to be typed on the command line every time.
+
+OTHER SYSTEMS: The software is all written in C. Typically you will 
+need to provide some code for every routine in 'sysdep.c' in order to 
+port the software to other environments.
+
+
+Report any problems to:
+
+Grammar Engine, Inc.
+3314 Morse Road
+Columbus, Ohio 43229
+(614) 471-1113

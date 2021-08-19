@@ -1,0 +1,20 @@
+Valid dialog mode commands are:
+
+   b                              - toggle Bus Req/Bus Ack mode on or off
+   c                              - compare image to Promice
+   d [unit:]address               - dump 16 bytes starting at address
+   e [unit:]address               - edit bytes starting at address
+   f StartAddr EndAddr Value      - fill image with 'value' in range
+   g filename                     - get Binary file and put in image
+   h filename                     - load Hex file into image and Promice
+   l [filename]                   - load Binary file into image and Promice
+   m StartAddr EndAddr DestAddr   - move block to Destination in image
+   p StartAddr EndAddr DestAddr   - same as move but allows DestAddr to overlap 
+                                     with 'range' (you can fill pattern)
+   r time                         - reset target for time milliseconds
+   s filename                     - save image as filename
+   t unit                         - test Promice emulation RAM
+   v unit                         - print version number of Promice firmware
+   x                              - exit LoadICE or edit mode
+   ?                              - type this file
+   ! command                      - execute DOS command 

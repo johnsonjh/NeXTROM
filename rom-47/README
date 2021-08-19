@@ -1,0 +1,62 @@
+Changes on Release 0.8.31
+ROM CRC 0xB52BF252
+PROM Progammer Checksum 0x4777
+Bassanio Law 02/16/89
+
+-------------------------
+How To Build The NeXT ROM Monitor From Sources
+Release 0.8.30
+ROM CRC 0x75cb568c
+PROM Programmer Checksum 0x40f8
+John Seamons  12/01/88
+
+This note describes how to build a binary and S-record file
+of the NeXT ROM monitor from the golden master source media.
+Like any other application, you must build on a machine that
+contains the 0.8 release and the associated include files
+(in /usr/include).
+
+1)  Mount the golden master source media as a Unix filesystem
+on the machine you'll be building on (have to be superuser to do this).
+	# mount /dev/od0a /mnt
+
+2)  Go to the ROM configuration directory.
+	# cd /mnt/rom-0.8.30/conf
+
+NOTE: If you just want to build the ROM from sources without
+altering the basic configuration then skip the next two steps.
+
+3)  (optional) Inspect the configuration file "RELEASE" and
+make any required changes (like enabling certain options or
+changing the version numbers).
+	# cd conf
+	# <edit> RELEASE
+
+4)  (optional) Configure in the changes you have made.
+	# config RELEASE
+	# cd ..
+
+5)  Go to the build directory and start a build.
+	# cd RELEASE
+	# make clean
+	# make
+
+6)  The "make" should complete without errors.  Observe the
+size of the object file shown.  The size under the "dec"
+column must be <= 65536 to fit in a 27C512 PROM.
+	text	data	bss	dec	hex
+	38840	26588	12	65440	ffa0
+
+7)  Build the S-record files for the ROMulator and PROM
+programmer.  The file "mon.srec" is used with the "load"
+command to download a ROMulator.  The file "mon.prom" is
+an S-record file with shorter (2 byte) address fields required
+by the Data I/O PROM programmers.  
+	# ../srec/srec mon >mon.srec
+	# ../srec/srec -2 mon >mon.prom
+
+8)  Use your local procedure to download the PROM programmer and
+burn PROM parts.  The Data I/O programmer checksum should indicate
+0x40f8 for this release.  This checksum should not be confused
+with the ROM release CRC that the ROM computes and verifies
+internally at power on time.

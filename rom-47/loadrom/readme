@@ -1,0 +1,121 @@
+LoadROM Version 2.1
+
+This new release is a complete rewrite. See the 'release' file
+for major features and differences from the old software:
+
+'LOADROM' COMMAND SUMMARY:
+
+Here is a brief description of all the commands:
+
+	loadrom [options] [file ...]
+
+options:-
+
+-r romsize	change the emulated romsize. State it as actual bytes 
+per chip (32768) or K bytes per chip (32k) or by part number (27256)
+
+-m model	change the model number of the target. Specify as the 
+actual model number (S256, D256NV etc.), except for fast models do not
+specify the speed specification.
+
+-n number	change the number of modules, number between 1 and 8.
+
+-w width	specify the word width 8, 16 or 32
+
+-i [x]offset	specifies that the filename ( specified following the 
+offset) is a binary file and to skip the 'offset' number of bytes 
+from the beginning of the file. There can only be one such specification
+and no other file specification are allowed
+
+-s [x]address	specifies the starting address of the ROM space.  
+This applies only to the first file in the file specification. This 
+is necessary where the hex data file has this offset as part of each 
+record in the file.  PLEASE NOTE that the subsequent specifications 
+of this offset (for files other than the first file) apply only to 
+the said file and is used to properly map all the data files into the 
+ROM address space.  The offset may have a '-' (negative) sign 
+prefixed to it.
+
+-o device/file	use the given string as the output device for loading 
+the ROMulator. Example com1, com2, /dev/tty3 etc.
+
+-b baudrate	use the specified baud rate for downloading
+
+-f [x]char	fill the ROM space with fill character. Normally the 
+unused space is left to random contents.  Note that filling will 
+cause delay in creating and loading the ROM image.
+
+-v count	verify the data that is loaded and try 'count' times 
+if the verification fails. A count of 0 will disable verification.
+
+-d		Enter dialog mode whereby following commands may be 
+given: g[et] filename - get the specified filename which is assumed 
+to be a binary file either saved earlier or otherwise and create the 
+current image file from it.
+
+	s[ave] filename - save the current ROM image to filename.
+
+	e[dit] address - enter edit mode and display the byte at 
+given address.  In order to alter the location new data may be 
+entered or a return typed to open the next location. Type 'x' to exit 
+the edit mode.
+
+	l[oad] [filename] - load the current image or given file into 
+the ROMulator.
+
+	[e]x[it] - exit the program.
+
+	? - print help information from file 'loadrom.hlp' on MSDOS
+	    systems this file is searched in PATH directories as well.
+
+	! - escape commands to DOS shell
+
+FOLLOWING FEATURES ARE ADDED TO 'LOADROM' BUT ARE NOT DOCUMENTED
+IN THE MANUAL.  THESE FEATURES HELP GET AROUND SOME POTENTIAL
+PROBLEMS THAT THE USER MAY ENCOUNTER AND PROVIDE SOME WISH-LIST
+ITEMS.
+
+-x 		Ignore checksum errors, normally the program will
+terminate on checksum errors.
+
+-ff [x]char	Fill and download entire ROM bank's worth instead of
+downloading just to the last address with valid data.
+
+-k adr1 adr2 adr3	Compute checksum from address 'adr1' to address
+'adr2' inclusive and store the result at address 'adr3'.  The checksum is
+a simple sum of all the bytes and the final result is negated.  If some
+other algorithm is desired you may change the routine called 'checksum'
+in 'loadrom.c' file.  The checksum is computed just before the image is
+downloaded, so that interactive editing changes are included in checksum.
+
+DISTRIBUTION MEIDA CONTENTS:
+
+The files that are included on the diskett are:
+
+1	readme	- this file
+2	release - release notes
+3	loadrom.h - header file of definitions
+4	loadrom.c - source code for command shell
+5	buildimg.c - source code for image builder
+6	sysdep.c - source code for system dependent stuff
+7	makefile.pc - make file to create 'loadrom.exe' file
+8	makefile.unx - makefile for unix systems
+9	makefile.com - VMS DCL command file for making 'loadrom'
+10	loadrom.vms - VMS DCL command file for invoking 'loadrom'
+11	loadrom.hlp - help file for 'dialog' mode
+12	loadrom.ini - example initialization file
+13	loadrom.exe - the executable image of loadrom command
+14	*.obj - object files for corresponding c modules
+
+
+
+Report any problems to:
+
+Grammar Engine, Inc.
+3314 Morse Road
+Columbus, Ohio 43229
+(614) 471-1113
+
+PLEASE NOTE THAT WE HAVE MOVED TO A NEW AND A BIGGER LOCATION.  WE 
+STILL USE THE OLD LOCATION AND PHONE NUMBER BUT PLEASE CONTACT US AT 
+OUR NEW OFFICE FOR FASTER SERVICE.

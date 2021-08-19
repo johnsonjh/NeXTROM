@@ -1,0 +1,21 @@
+Valid command line parameters are:
+
+  -b baudrate            - 1200, 2400, 4800, 9600, 19200 or 57600
+  -d                     - enter dialog mode after building image
+  -f [x]character        - fill the image space with a character
+  -ff [x]character       - same as f except fills all of the image space
+  -h                     - disable paced response from Promice, for 386's
+  -i [x]offset filename  - load a binary image skipping offset bytes
+  -k start end dest      - compute checksum from start to end, store in dest 
+  -l			 - load before going into dialog mode
+  -m ID:start end	 - load data only in the specified range and unit
+  -o device/file         - select alternate output device or file
+  -p                     - select parallel port option
+  -r romsize             - select alternate emulated ROM size
+  -s address             - change starting address of file
+  -u ID                  - change the unit ID for loading the next file
+  -v                     - disables the verify feature
+  -w width               - change the width of the data word (8,16 or 32)
+  -x                     - inhibit validating checksums on hex records
+  -z			 - don't exit on address out of range errors
+  filename               - hex file to be loaded into Promice

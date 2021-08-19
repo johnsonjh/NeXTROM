@@ -1,0 +1,8 @@
+Valid commands are:
+	e[Edit} address - edit bytes starting at address
+	l[Load] [filename] - load given image file in to ROMulator
+	s[Save] filename - save image file as filename
+	g[Get] filename - get image file
+	[e]x[Exit] - exit LoadROM
+	? - type this file
+	! - escape command to the system

@@ -1,0 +1,59 @@
+			  RELEASE NOTES
+
+			LoadICE Version 1.4b
+
+This is a new release of the LoadICE software.  We have tried to fix all
+known bugs and also ported and tested the software on Macintosh, UNIX and
+VMS systems.  This code was compiled under MicroSoft C V6.0.
+
+***************************************************************************
+FOR MAC MPW USERS: To make life a little easier and sane, we have added
+a filter to each interactive input so that you can now type the input
+on the same line as the prompts from the program.  The software will 
+filter out the prompt string and read your input.  We have very loose
+format checking so try not to backspace over the prompt or otherwise
+put your input else where.  The software is certainly more fun to use now!!
+We also made the BeachBall cursor spin around while loading the unit etc.
+***************************************************************************
+
+The following command is added to the dialog mode
+
+    b                 - toggle Bus Req/Bus Ack mode on and off. 
+
+Bus Request mode only works with the bus request and bus acknowledge 
+signal lines connected to the target. It allows the user to modify the
+code without disrupting the target system. If you have any questions 
+please call Grammar Engine.
+
+We have increased the number of files that can be specified in the .INI
+file from 15 to 55. Any line in the .INI file that starts with a * is now
+parsed as a comment.
+
+We have also added to the edit mode.
+
+	^                 - Backs up one byte 
+	.                 - Same as x
+
+
+Hex formats supported:
+
+Motorola S-record format S1, S2, S3.
+Intel standard format, 64k byte limit.
+Intel extended format, 1m byte limit.
+Tektronix Hex format (Standard TEKHEX).
+Tektronix Extended Hex format (Extended TEKHEX).
+RCA COSMAC format.
+MOSTEK format (as used by most 6502 assemblers).
+Motorola DSP56001 format
+
+Note: for the last three formats, we do not have a published standard
+and they were added on customer request per the information supplied
+by them.
+
+Please report any problems to:
+
+Grammar Engine, Inc. 
+3314 Morse Road 
+Columbus, Ohio 43229 
+(614) 471-1113 (phone)
+(614) 475-6871 (fax)
